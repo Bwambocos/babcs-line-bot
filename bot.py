@@ -19,8 +19,8 @@ def download():
     dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
     dbx.users_get_current_account()
 
-    dbx.files_download_to_file("LINE/data.txt", "/LINE/data.txt")
-    with open("LINE/data.txt", "rb") as f:
+    dbx.files_download_to_file("data.txt", "/LINE/data.txt")
+    with open("data.txt", "rb") as f:
         data = pickle.load(f)
         del f
         gc.collect()
@@ -32,11 +32,11 @@ def upload():
     dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
     dbx.users_get_current_account()
 
-    with open("LINE/data.txt", "wb") as f:
+    with open("data.txt", "wb") as f:
         pickle.dump(data, f)
         del f
         gc.collect()
-    with open("LINE/data.txt", "rb") as f:
+    with open("data.txt", "rb") as f:
         dbx.files_upload(f.read(), "/LINE/data.txt", mode = dropbox.files.WriteMode.overwrite)
         del f
         gc.collect()
