@@ -1,50 +1,110 @@
-from flask import Flask, request, abort
 import os
-from linebot import (
-    LineBotApi, WebhookHandler
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+import dropbox
+from dropbox.files import WriteMode
+import pickle
+import requests
+from bs4 import BeautifulSoup
+from linebot import LineBotApi
+from linebot.models import TextSendMessage
+import gc
+
+data = []
+
+def download():
+    
+    global data
+
+    dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
+    dbx.users_get_current_account()
+
+    dbx.files_download_to_file("LINE/data.txt", "/LINE/data.txt")
+    with open("LINE/data.txt", "rb") as f:
+        data = pickle.load(f)
+        del f
+        gc.collect()
+
+def upload():
+
+    global data
+
+    dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
+    dbx.users_get_current_account()
+
+    with open("LINE/data.txt", "wb") as f:
+        pickle.dump(data, f)
+        del f
+        gc.collect()
+    with open("LINE/data.txt", "rb") as f:
+        dbx.files_upload(f.read(), "/LINE/data.txt", mode = dropbox.files.WriteMode.overwrite)
+        del f
+        gc.collect()
+
+sched = BlockingScheduler(
+    executors = {
+        'threadpool' : ThreadPoolExecutor(max_workers = 5),
+        'processpool' : ProcessPoolExecutor(max_workers = 1)
+    }
 )
-from linebot.exceptions import (
-    InvalidSignatureError
-)
-from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage,
-)
 
-app = Flask(__name__)
+@sched.scheduled_job('interval', minutes = 5, executor = 'threadpool')
+def scheduled_job():
+    
+    print("line_bot: ----- Detect update Start -----\n")
 
-CHANNEL_ACCESS_TOKEN = os.environ["CHANNEL_ACCESS_TOKEN"]
-CHANNEL_SECRET = os.environ["CHANNEL_SECRET"]
+    global data
 
-line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(CHANNEL_SECRET)
-
-@app.route("/")
-def hello_world():
-    return "hello world!"
-
-@app.route("/callback", methods=['POST'])
-def callback():
-
-    # get X-Line-Signature header value
-    signature = request.headers['X-Line-Signature']
-
-    # get request body as text
-    body = request.get_data(as_text = True)
-    app.logger.info("Request body: " + body)
-
-    # handle webhook body
+    # Detect updates
+    download()
+    pageHTML = requests.get("https://www.c.u-tokyo.ac.jp/zenki/news/index.html")
+    results = []
     try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
+        pageHTML.raise_for_status()
+        pageData = BeautifulSoup(pageHTML.text, "html.parser")
+        pageDiv = pageData.find_all(id = "newslist2")
+        pageDates = pageDiv[0].find_all("dt")
+        pageTitles = pageDiv[0].find_all("dd")
 
-    return 'OK'
+        nums = len(pageDates)
+        index = 0
+        newData = []
+        while index < nums:
+            date = str(pageDates[index].contents[0])
+            title = str(pageTitles[index].contents[0].contents[0])
+            url = str(pageTitles[index].contents[0].attrs["href"])
+            if url[0] != 'h':
+                url = "https://www.c.u-tokyo.ac.jp" + url
+            newData.append((date, title, url))
+            index += 1
 
-@handler.add(MessageEvent, message = TextMessage)
-def handle_message(event):
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text = event.message.text))
+        for row in newData:
+            if row not in data:
+                results.append(row)
+    except:
+        print("line_bot: pageHTML Error")
+        return
 
-port = int(os.getenv("PORT"))
-app.run(host="0.0.0.0", port = port)
+    # Send LINE messages
+    line_bot_api = LineBotApi(os.environ["CHANNEL_ACCESS_TOKEN"])
+    for row in results:
+        message = str("お知らせが更新されました：\n" + row[1] + "\n" + row[2])
+        line_bot_api.broadcast(TextSendMessage(text = message))
+        if os.environ["LINE_GROUP_ID"] != "NULL":
+            line_bot_api.push_message(os.environ["LINE_GROUP_ID"], TextSendMessage(text = message))
+        print("line_bot: Noticed new information (title : " + row[1] + ")\n")
+
+    # Update the data
+    data = newData
+    upload()
+
+    print("line_bot: Detected " + str(len(results)) + " updates\n")
+    print("line_bot: ----- Detect update End -----\n")
+
+    del newData
+    del pageHTML
+    del results
+    gc.collect()
+
+# Run
+sched.start()
