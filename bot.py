@@ -52,9 +52,9 @@ sched = BlockingScheduler(
 def scheduled_job():
     
     print("line_bot: ----- Detect update Start -----\n")
-
+    
     global data
-
+    
     # Detect updates
     download()
     pageHTML = requests.get("https://www.c.u-tokyo.ac.jp/zenki/news/index.html")
@@ -65,26 +65,27 @@ def scheduled_job():
         pageDiv = pageData.find_all(id = "newslist2")
         pageDates = pageDiv[0].find_all("dt")
         pageTitles = pageDiv[0].find_all("dd")
-
+    
         nums = len(pageDates)
         index = 0
         newData = []
         while index < nums:
-            date = str(pageDates[index].contents[0])
-            title = str(pageTitles[index].contents[0].contents[0])
-            url = str(pageTitles[index].contents[0].attrs["href"])
-            if url[0] != 'h':
-                url = "https://www.c.u-tokyo.ac.jp" + url
-            newData.append((date, title, url))
+            if (len(pageTitles[index].contents) == 3 and pageTitles[index].contents[2].attrs["src"] == "/zenki/news/kyoumu/images/common/news_important2.gif") or (len(pageTitles[index].contents) == 5 and pageTitles[index].contents[4].attrs["src"] == "/zenki/news/kyoumu/images/common/news_important2.gif"):
+                date = str(pageDates[index].contents[0])
+                title = str(pageTitles[index].contents[0].contents[0])
+                url = str(pageTitles[index].contents[0].attrs["href"])
+                if url[0] != 'h':
+                    url = "https://www.c.u-tokyo.ac.jp" + url
+                newData.append((date, title, url))
             index += 1
-
+    
         for row in newData:
             if row not in data:
                 results.append(row)
     except:
         print("line_bot: pageHTML Error")
         return
-
+    
     # Send LINE messages
     line_bot_api = LineBotApi(os.environ["CHANNEL_ACCESS_TOKEN"])
     for row in results:
@@ -93,14 +94,14 @@ def scheduled_job():
         if os.environ["LINE_GROUP_ID"] != "NULL":
             line_bot_api.push_message(os.environ["LINE_GROUP_ID"], TextSendMessage(text = message))
         print("line_bot: Noticed new information (title : " + row[1] + ")\n")
-
+    
     # Update the data
     data = newData
     upload()
-
+    
     print("line_bot: Detected " + str(len(results)) + " updates\n")
     print("line_bot: ----- Detect update End -----\n")
-
+    
     del newData
     del pageHTML
     del results
