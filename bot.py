@@ -50,11 +50,10 @@ sched = BlockingScheduler(
 
 @sched.scheduled_job('interval', minutes = 5, executor = 'threadpool')
 def scheduled_job():
-    
     print("line_bot: ----- Detect update Start -----\n")
-    
+
     global data
-    
+
     # Detect updates
     download()
     pageHTML = requests.get("https://www.c.u-tokyo.ac.jp/zenki/news/index.html")
@@ -70,7 +69,7 @@ def scheduled_job():
         index = 0
         newData = []
         while index < nums:
-            if (len(pageTitles[index].contents) == 3 and pageTitles[index].contents[2].attrs["src"] == "/zenki/news/kyoumu/images/common/news_important2.gif") or (len(pageTitles[index].contents) == 5 and pageTitles[index].contents[4].attrs["src"] == "/zenki/news/kyoumu/images/common/news_important2.gif"):
+            if (len(pageTitles[index].contents) == 3 and pageTitles[index].contents[2].attrs["src"] == "/zenki/news/kyoumu/images/common/news_important2.gif") or (len(pageTitles[index].contents) == 5 and pageTitles[index].contents[4].attrs["src"] == "/zenki/news/kyoumu/images/common/news_important2.gif") or (len(pageTitles[index].contents) == 5 and pageTitles[index].contents[3].attrs["src"] == "/zenki/news/kyoumu/images/common/news_important2.gif"):
                 date = str(pageDates[index].contents[0])
                 title = str(pageTitles[index].contents[0].contents[0])
                 url = str(pageTitles[index].contents[0].attrs["href"])
