@@ -23,7 +23,7 @@ sched = BlockingScheduler(
 @sched.scheduled_job('interval', minutes = 5, executor = 'threadpool')
 def scheduled_job():
 
-    print("line_bot: ----- Detect update Start -----\n")
+    print("notify_news: ----- Detect news update Start -----\n")
 
     data = []
 
@@ -64,9 +64,9 @@ def scheduled_job():
             if row not in data:
                 results.append(row)
     except:
-        print("line_bot: pageHTML Error")
+        print("notify_news: pageHTML Error")
         return
-    print("line_bot: Detected " + str(len(results)) + " updates\n")
+    print("notify_news: Detected " + str(len(results)) + " updates\n")
 
     # Send LINE messages
     line_bot_api = LineBotApi(os.environ["CHANNEL_ACCESS_TOKEN"])
@@ -75,7 +75,7 @@ def scheduled_job():
         line_bot_api.broadcast(TextSendMessage(text = message))
         if os.environ["LINE_GROUP_ID"] != "NULL":
             line_bot_api.push_message(os.environ["LINE_GROUP_ID"], TextSendMessage(text = message))
-        print("line_bot: Noticed new information (title : " + row[1] + ")\n")
+        print("notify_news: Noticed new information (title : " + row[1] + ")\n")
 
     # Upload
     data = newData
@@ -88,7 +88,7 @@ def scheduled_job():
         del f
         gc.collect()
     
-    print("line_bot: ----- Detect update End -----\n")
+    print("notify_news: ----- Detect news update End -----\n")
     
     del data
     del newData
@@ -118,7 +118,7 @@ def getStatus(bdName, bdNum):
         newRoomData.clear()
         time.sleep(10)
 
-    print("line_bot: Downloaded " + bdName + " status (" + str(len(newRoomData)) + " rooms)")
+    print("statistics: Downloaded " + bdName + " status (" + str(len(newRoomData)) + " rooms)")
     return newRoomData
 
 @sched.scheduled_job('interval', minutes = 15, executor = 'threadpool')
@@ -127,7 +127,7 @@ def scheduled_job():
     bdData = []
     roomData = []
     
-    print("line_bot: ----- Update statistics Start -----\n")
+    print("statistics: ----- Update statistics Start -----\n")
 
     dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
     dbx.users_get_current_account()
@@ -151,7 +151,7 @@ def scheduled_job():
         bd[1] = len(bdStatus)
         addedRoomData.extend(bdStatus)
     roomData.append((datetime.datetime.today(), addedRoomData))
-    print("line_bot: Updated statistics (" + str(len(roomData)) + " data)")
+    print("statistics: Updated statistics (" + str(len(roomData)) + " data)")
 
     # Upload
     with open("UT_statistics/bdData.txt", "wb") as f:
@@ -171,7 +171,7 @@ def scheduled_job():
         del f
         gc.collect()
 
-    print("line_bot: ----- Update statistics End -----\n")
+    print("statistics: ----- Update statistics End -----\n")
 
 # Run
 sched.start()
