@@ -15,15 +15,15 @@ import gc
 
 sched = BlockingScheduler(
     executors = {
-        'threadpool' : ThreadPoolExecutor(max_workers = 2),
-        'processpool' : ProcessPoolExecutor(max_workers = 2)
+        'threadpool' : ThreadPoolExecutor(max_workers = 5),
+        'processpool' : ProcessPoolExecutor(max_workers = 1)
     }
 )
 
 @sched.scheduled_job('interval', minutes = 5, executor = 'threadpool')
 def scheduled_job():
 
-    print("notify_news: ----- Detect news update Start -----\n")
+    print("notify_news: ----- Detect news update Start -----")
 
     data = []
 
@@ -66,7 +66,7 @@ def scheduled_job():
     except:
         print("notify_news: pageHTML Error")
         return
-    print("notify_news: Detected " + str(len(results)) + " updates\n")
+    print("notify_news: Detected " + str(len(results)) + " updates")
 
     # Send LINE messages
     line_bot_api = LineBotApi(os.environ["CHANNEL_ACCESS_TOKEN"])
@@ -75,7 +75,7 @@ def scheduled_job():
         line_bot_api.broadcast(TextSendMessage(text = message))
         if os.environ["LINE_GROUP_ID"] != "NULL":
             line_bot_api.push_message(os.environ["LINE_GROUP_ID"], TextSendMessage(text = message))
-        print("notify_news: Noticed new information (title : " + row[1] + ")\n")
+        print("notify_news: Noticed new information (title : " + row[1] + ")")
 
     # Upload
     data = newData
@@ -88,7 +88,7 @@ def scheduled_job():
         del f
         gc.collect()
     
-    print("notify_news: ----- Detect news update End -----\n")
+    print("notify_news: ----- Detect news update End -----")
     
     del data
     del newData
@@ -127,7 +127,7 @@ def scheduled_job():
     bdData = []
     roomData = []
     
-    print("statistics: ----- Update statistics Start -----\n")
+    print("statistics: ----- Update statistics Start -----")
 
     dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
     dbx.users_get_current_account()
@@ -171,7 +171,7 @@ def scheduled_job():
         del f
         gc.collect()
 
-    print("statistics: ----- Update statistics End -----\n")
+    print("statistics: ----- Update statistics End -----")
 
 # Run
 sched.start()
