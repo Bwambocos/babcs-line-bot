@@ -5,57 +5,39 @@ import dropbox
 from dropbox.files import WriteMode
 import pickle
 import requests
+from requests.exceptions import ConnectTimeout
 from bs4 import BeautifulSoup
 from linebot import LineBotApi
 from linebot.models import TextSendMessage
+import datetime
+import time
 import gc
-
-data = []
-
-def download():
-    
-    global data
-
-    dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
-    dbx.users_get_current_account()
-
-    dbx.files_download_to_file("data.txt", "/LINE/data.txt")
-    with open("data.txt", "rb") as f:
-        data = pickle.load(f)
-        del f
-        gc.collect()
-
-def upload():
-
-    global data
-
-    dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
-    dbx.users_get_current_account()
-
-    with open("data.txt", "wb") as f:
-        pickle.dump(data, f)
-        del f
-        gc.collect()
-    with open("data.txt", "rb") as f:
-        dbx.files_upload(f.read(), "/LINE/data.txt", mode = dropbox.files.WriteMode.overwrite)
-        del f
-        gc.collect()
 
 sched = BlockingScheduler(
     executors = {
-        'threadpool' : ThreadPoolExecutor(max_workers = 5),
-        'processpool' : ProcessPoolExecutor(max_workers = 1)
+        'threadpool' : ThreadPoolExecutor(max_workers = 2),
+        'processpool' : ProcessPoolExecutor(max_workers = 2)
     }
 )
 
 @sched.scheduled_job('interval', minutes = 5, executor = 'threadpool')
 def scheduled_job():
+
     print("line_bot: ----- Detect update Start -----\n")
 
-    global data
+    data = []
 
+    dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
+    dbx.users_get_current_account()
+    
+    # Download
+    dbx.files_download_to_file("data.txt", "/LINE/data.txt")
+    with open("data.txt", "rb") as f:
+        data = pickle.load(f)
+        del f
+        gc.collect()
+    
     # Detect updates
-    download()
     pageHTML = requests.get("https://www.c.u-tokyo.ac.jp/zenki/news/index.html")
     results = []
     try:
@@ -84,7 +66,8 @@ def scheduled_job():
     except:
         print("line_bot: pageHTML Error")
         return
-    
+    print("line_bot: Detected " + str(len(results)) + " updates\n")
+
     # Send LINE messages
     line_bot_api = LineBotApi(os.environ["CHANNEL_ACCESS_TOKEN"])
     for row in results:
@@ -93,18 +76,102 @@ def scheduled_job():
         if os.environ["LINE_GROUP_ID"] != "NULL":
             line_bot_api.push_message(os.environ["LINE_GROUP_ID"], TextSendMessage(text = message))
         print("line_bot: Noticed new information (title : " + row[1] + ")\n")
-    
-    # Update the data
+
+    # Upload
     data = newData
-    upload()
+    with open("data.txt", "wb") as f:
+        pickle.dump(data, f)
+        del f
+        gc.collect()
+    with open("data.txt", "rb") as f:
+        dbx.files_upload(f.read(), "/LINE/data.txt", mode = dropbox.files.WriteMode.overwrite)
+        del f
+        gc.collect()
     
-    print("line_bot: Detected " + str(len(results)) + " updates\n")
     print("line_bot: ----- Detect update End -----\n")
     
+    del data
     del newData
     del pageHTML
     del results
     gc.collect()
+
+def getStatus(bdName, bdNum):
+    
+    newRoomData = []
+
+    while True:
+        pageHTML = requests.get("https://wifi-monitor.nc.u-tokyo.ac.jp/" + bdName + ".html")
+        pageHTML.raise_for_status()
+        pageData = BeautifulSoup(pageHTML.content, "html.parser")
+        rows = pageData.find_all("tr")
+
+        for row in rows:
+            name = str(row.contents[0].text)
+            if name == "WiFi アクセスポイント設置場所":
+                continue
+            connections = int(row.contents[1].text)
+            newRoomData.append((name, connections))
+
+        if len(newRoomData) >= bdNum:
+            break
+        newRoomData.clear()
+        time.sleep(10)
+
+    print("line_bot: Downloaded " + bdName + " status (" + str(len(newRoomData)) + " rooms)")
+    return newRoomData
+
+@sched.scheduled_job('interval', minutes = 15, executor = 'threadpool')
+def scheduled_job():
+
+    bdData = []
+    roomData = []
+    
+    print("line_bot: ----- Update statistics Start -----\n")
+
+    dbx = dropbox.Dropbox(os.environ["DROPBOX_KEY"])
+    dbx.users_get_current_account()
+    
+    # Download
+    dbx.files_download_to_file("UT_statistics/bdData.txt", "/UT_statistics/bdData.txt")
+    with open("UT_statistics/bdData.txt", "rb") as f:
+        bdData = pickle.load(f)
+        del f
+        gc.collect()
+    dbx.files_download_to_file("UT_statistics/roomData.txt", "/UT_statistics/roomData.txt")
+    with open("UT_statistics/roomData.txt", "rb") as f:
+        roomData = pickle.load(f)
+        del f
+        gc.collect()
+
+    # Update statistics
+    addedRoomData = []
+    for bd in bdData:
+        bdStatus = getStatus(bd[0], bd[1])
+        bd[1] = len(bdStatus)
+        addedRoomData.extend(bdStatus)
+    roomData.append((datetime.datetime.today(), addedRoomData))
+    print("line_bot: Updated statistics (" + str(len(roomData)) + " data)")
+
+    # Upload
+    with open("UT_statistics/bdData.txt", "wb") as f:
+        pickle.dump(bdData, f)
+        del f
+        gc.collect()
+    with open("UT_statistics/bdData.txt", "rb") as f:
+        dbx.files_upload(f.read(), "/UT_statistics/bdData.txt", mode = dropbox.files.WriteMode.overwrite)
+        del f
+        gc.collect()
+    with open("UT_statistics/roomData.txt", "wb") as f:
+        pickle.dump(roomData, f)
+        del f
+        gc.collect()
+    with open("UT_statistics/roomData.txt", "rb") as f:
+        dbx.files_upload(f.read(), "/UT_statistics/roomData.txt", mode = dropbox.files.WriteMode.overwrite)
+        del f
+        gc.collect()
+
+    print("line_bot: ----- Update statistics End -----\n")
 
 # Run
 sched.start()
