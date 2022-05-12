@@ -31,8 +31,8 @@ def scheduled_job():
     dbx.users_get_current_account()
     
     # Download
-    dbx.files_download_to_file("data.txt", "/LINE/data.txt")
-    with open("data.txt", "rb") as f:
+    dbx.files_download_to_file("newsData.txt", "/UT/newsData.txt")
+    with open("newsData.txt", "rb") as f:
         data = pickle.load(f)
         del f
         gc.collect()
@@ -79,12 +79,12 @@ def scheduled_job():
 
     # Upload
     data = newData
-    with open("data.txt", "wb") as f:
+    with open("newsData.txt", "wb") as f:
         pickle.dump(data, f)
         del f
         gc.collect()
-    with open("data.txt", "rb") as f:
-        dbx.files_upload(f.read(), "/LINE/data.txt", mode = dropbox.files.WriteMode.overwrite)
+    with open("newsData.txt", "rb") as f:
+        dbx.files_upload(f.read(), "/UT/newsData.txt", mode = dropbox.files.WriteMode.overwrite)
         del f
         gc.collect()
     
@@ -133,13 +133,13 @@ def scheduled_job():
     dbx.users_get_current_account()
     
     # Download
-    dbx.files_download_to_file("UT_statistics/bdData.txt", "/UT_statistics/bdData.txt")
-    with open("UT_statistics/bdData.txt", "rb") as f:
+    dbx.files_download_to_file("bdData.txt", "/UT/bdData.txt")
+    with open("bdData.txt", "rb") as f:
         bdData = pickle.load(f)
         del f
         gc.collect()
-    dbx.files_download_to_file("UT_statistics/roomData.txt", "/UT_statistics/roomData.txt")
-    with open("UT_statistics/roomData.txt", "rb") as f:
+    dbx.files_download_to_file("roomData.txt", "/UT/roomData.txt")
+    with open("roomData.txt", "rb") as f:
         roomData = pickle.load(f)
         del f
         gc.collect()
@@ -154,20 +154,20 @@ def scheduled_job():
     print("statistics: Updated statistics (" + str(len(roomData)) + " data)")
 
     # Upload
-    with open("UT_statistics/bdData.txt", "wb") as f:
+    with open("bdData.txt", "wb") as f:
         pickle.dump(bdData, f)
         del f
         gc.collect()
-    with open("UT_statistics/bdData.txt", "rb") as f:
-        dbx.files_upload(f.read(), "/UT_statistics/bdData.txt", mode = dropbox.files.WriteMode.overwrite)
+    with open("bdData.txt", "rb") as f:
+        dbx.files_upload(f.read(), "/UT/bdData.txt", mode = dropbox.files.WriteMode.overwrite)
         del f
         gc.collect()
-    with open("UT_statistics/roomData.txt", "wb") as f:
+    with open("roomData.txt", "wb") as f:
         pickle.dump(roomData, f)
         del f
         gc.collect()
-    with open("UT_statistics/roomData.txt", "rb") as f:
-        dbx.files_upload(f.read(), "/UT_statistics/roomData.txt", mode = dropbox.files.WriteMode.overwrite)
+    with open("roomData.txt", "rb") as f:
+        dbx.files_upload(f.read(), "/UT/roomData.txt", mode = dropbox.files.WriteMode.overwrite)
         del f
         gc.collect()
 
