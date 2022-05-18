@@ -113,7 +113,7 @@ def getStatus(bdName, bdNum):
             connections = int(row.contents[1].text)
             newRoomData.append((name, connections))
 
-        if len(newRoomData) >= bdNum:
+        if len(newRoomData) >= bdNum / 3:
             break
         newRoomData.clear()
         time.sleep(10)
@@ -121,7 +121,7 @@ def getStatus(bdName, bdNum):
     print("statistics: Downloaded " + bdName + " status (" + str(len(newRoomData)) + " rooms)")
     return newRoomData
 
-@sched.scheduled_job('interval', minutes = 15, executor = 'threadpool')
+@sched.scheduled_job('interval', minutes = 10, executor = 'threadpool')
 def scheduled_job():
 
     bdData = []
