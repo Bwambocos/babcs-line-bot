@@ -13,6 +13,9 @@ import datetime
 import time
 import gc
 
+from dotenv import load_dotenv
+load_dotenv()
+
 sched = BlockingScheduler(
     executors = {
         'threadpool' : ThreadPoolExecutor(max_workers = 5),
